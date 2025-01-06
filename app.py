@@ -7,17 +7,19 @@ import pandas as pd
 import requests
 import os
 
-# URL to the raw xgb_model_new.pkl file in your GitHub repository
+# URL to the Logistic Regression model file in your GitHub repository
 url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic Regression_model.pkl"
 
-# Download the xgb_model_new.pkl file and save it locally
+# Download the Logistic Regression model file and save it locally
 response = requests.get(url)
-with open("Logistic Regression_model.pkl", "wb") as file:
+with open("Logistic_Regression_model.pkl", "wb") as file:
     file.write(response.content)
 
-# Load the trained model
-with open("Logistic Regression_model.pkl", "rb") as pickle_in:
-    classifier = pickle.load(pickle_in)
+# Load the trained model and feature names
+with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
+    loaded_model_dict = pickle.load(pickle_in)
+    classifier = loaded_model_dict['model']  # The trained Logistic Regression model
+    trained_features = loaded_model_dict['feature_names']  # Extract the feature names
 
 # Initialize SQLite database
 def init_db():
@@ -64,18 +66,17 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 # Prediction function
 @st.cache_data
 def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
-    # Map user inputs to numeric values (if necessary)
+    # Map user inputs to numeric values
     Education_1 = 0 if Education_1 == "Graduate" else 1
     Credit_History = 0 if Credit_History == "Unclear Debts" else 1
 
-    # Create input data (all user inputs)
+    # Create input data as a DataFrame
     input_data = pd.DataFrame(
         [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
         columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
     )
 
     # Filter to only include features used by the model
-    trained_features = classifier.feature_names_in_  # Features used in model training
     input_data_filtered = input_data[trained_features]
 
     # Model prediction (0 = Rejected, 1 = Approved)
@@ -85,13 +86,12 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
 # Explanation function
 def explain_prediction(input_data, final_result):
-    explainer = shap.TreeExplainer(classifier)
-    shap_values = explainer.shap_values(input_data)
-    shap_values_for_input = shap_values[0]
+    explainer = shap.LinearExplainer(classifier, input_data)
+    shap_values = explainer(input_data)
 
     feature_names = input_data.columns
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(feature_names, shap_values_for_input):
+    for feature, shap_value in zip(feature_names, shap_values.values[0]):
         explanation_text += (
             f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.2f}\n"
         )
@@ -101,7 +101,7 @@ def explain_prediction(input_data, final_result):
         explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
     plt.figure(figsize=(8, 5))
-    plt.barh(feature_names, shap_values_for_input, color=["green" if val > 0 else "red" for val in shap_values_for_input])
+    plt.barh(feature_names, shap_values.values[0], color=["green" if val > 0 else "red" for val in shap_values.values[0]])
     plt.xlabel("SHAP Value (Impact on Prediction)")
     plt.ylabel("Features")
     plt.title("Feature Contributions to Prediction")
@@ -114,33 +114,7 @@ def main():
     init_db()
 
     # App layout
-    st.markdown(
-        """
-        <style>
-        .main-container {
-            background-color: #f4f6f9;
-            border: 2px solid #e6e8eb;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        .header {
-            background-color: #4caf50;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .header h1 {
-            color: white;
-        }
-        </style>
-        <div class="main-container">
-        <div class="header">
-        <h1>Loan Prediction ML App</h1>
-        </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.title("Loan Prediction ML App")
 
     # User inputs
     Gender = st.selectbox("Gender", ("Male", "Female"))
