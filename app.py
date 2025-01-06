@@ -1,15 +1,9 @@
 import sqlite3
 import pickle
 import streamlit as st
-import shap
-import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
-import warnings
-
-# Suppress warnings (optional)
-warnings.filterwarnings("ignore", category=UserWarning)
 
 # URL to the Logistic Regression model file in your GitHub repository
 url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic Regression_model.pkl"
@@ -20,7 +14,7 @@ with open("Logistic_Regression_model.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model and feature names
-with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
+with open("Logistic Regression_model.pkl", "rb") as pickle_in:
     loaded_model_dict = pickle.load(pickle_in)
     classifier = loaded_model_dict['model']  # The trained Logistic Regression model
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
@@ -68,7 +62,7 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
     conn.close()
 
 # Prediction function
-@st.cache
+@st.cache_data
 def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
     # Map user inputs to numeric values
     Education_1 = 0 if Education_1 == "Graduate" else 1
