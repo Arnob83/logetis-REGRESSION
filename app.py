@@ -102,40 +102,34 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     return pred_label, input_data_filtered
 
 def explain_prediction(input_data_scaled, final_result):
-    try:
-        # Use SHAP LinearExplainer for logistic regression
-        explainer = shap.LinearExplainer(classifier, input_data_scaled)
-        shap_values = explainer.shap_values(input_data_scaled)
+    # Use SHAP LinearExplainer for logistic regression
+    explainer = shap.LinearExplainer(classifier, input_data_scaled)
+    shap_values = explainer.shap_values(input_data_scaled)
 
-        # Extract SHAP values for the relevant class
-        shap_values_for_class = shap_values[0]
+    # Select SHAP values for the predicted class
+    shap_values_for_class = shap_values[0]
 
-        explanation_text = f"**Why your loan is {final_result}:**\n\n"
-        for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
-            explanation_text += (
-                f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
-            )
+    explanation_text = f"**Why your loan is {final_result}:**\n\n"
+    for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
+        explanation_text += (
+            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
+        )
 
-        if final_result == 'Rejected':
-            explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
-        else:
-            explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
+    if final_result == 'Rejected':
+        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
+    else:
+        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
-        # Generate the SHAP bar plot
-        plt.figure(figsize=(8, 5))
-        colors = ['green' if value > 0 else 'red' for value in shap_values_for_class]
-        plt.barh(input_data_scaled.columns, shap_values_for_class, color=colors)
-        plt.xlabel("SHAP Value (Impact on Prediction)")
-        plt.ylabel("Features")
-        plt.title("Feature Contributions to Prediction")
-        plt.tight_layout()
+    # Generate the SHAP bar plot
+    plt.figure(figsize=(8, 5))
+    colors = ['green' if value > 0 else 'red' for value in shap_values_for_class]
+    plt.barh(input_data_scaled.columns, shap_values_for_class, color=colors)
+    plt.xlabel("SHAP Value (Impact on Prediction)")
+    plt.ylabel("Features")
+    plt.title("Feature Contributions to Prediction")
+    plt.tight_layout()
 
-        return explanation_text, plt
-
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error in explain_prediction: {e}")
-        return None, None
+    return explanation_text, plt
 
 # Main Streamlit app
 def main():
