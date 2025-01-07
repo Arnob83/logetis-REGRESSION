@@ -8,11 +8,17 @@ import shap
 import matplotlib.pyplot as plt
 
 # URL to the Logistic Regression model file in your GitHub repository
-url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic%20Regression_model.pkl"
+model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic%20Regression_model.pkl"
+scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Download the Logistic Regression model file and save it locally
-response = requests.get(url)
+response = requests.get(model_url)
 with open("Logistic_Regression_model.pkl", "wb") as file:
+    file.write(response.content)
+
+# Download the scaler file and save it locally
+response = requests.get(scaler_url)
+with open("scaler.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model and feature names
@@ -22,7 +28,7 @@ with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
 
 # Load the scaler used during training
-with open("/path/to/scaler.pkl", "rb") as scaler_file:  # Update this path
+with open("scaler.pkl", "rb") as scaler_file:
     scaler = pickle.load(scaler_file)
 
 # Initialize SQLite database
