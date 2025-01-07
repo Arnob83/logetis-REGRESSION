@@ -103,10 +103,12 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
 # Explanation function
 def explain_prediction(input_data, final_result):
-    explainer = shap.Explainer(classifier, input_data)
-    shap_values = explainer(input_data)
+    # Use SHAP LinearExplainer for logistic regression
+    explainer = shap.LinearExplainer(classifier, input_data)
+    shap_values = explainer.shap_values(input_data)
 
-    shap_values_for_class = shap_values.values[0]
+    # Extract SHAP values for the relevant class (e.g., 1 for "Approved")
+    shap_values_for_class = shap_values[0]
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(input_data.columns, shap_values_for_class):
@@ -129,7 +131,6 @@ def explain_prediction(input_data, final_result):
     plt.tight_layout()
 
     return explanation_text, plt
-
 # Main Streamlit app
 def main():
     # Initialize database
