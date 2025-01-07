@@ -52,7 +52,8 @@ def init_db():
         loan_amount_term REAL,
         result TEXT
     )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 
@@ -92,6 +93,9 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
     # Apply scaling using the loaded scaler
     input_data_scaled = scaler.transform(input_data_filtered)
+
+    # Convert scaled data back to DataFrame with feature names
+    input_data_scaled = pd.DataFrame(input_data_scaled, columns=trained_features)
 
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_scaled)
