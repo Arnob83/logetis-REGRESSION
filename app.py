@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 import os
 
-# URL to the Logistic Regression model file and scaler file in your GitHub repository
+# URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
 scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
@@ -29,7 +29,8 @@ with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
 
 # Load the scaler used during training
 with open("scaler.pkl", "rb") as scaler_file:
-    scaler = pickle.load(scaler_file)
+    scaler_dict = pickle.load(scaler_file)  # Load the dictionary
+    scaler = scaler_dict['scaler']  # Extract the scaler object
 
 # Initialize SQLite database
 def init_db():
@@ -86,7 +87,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
         columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
     )
 
-    # Filter to only include features used by the model
+    # Reorder and filter columns to match trained features
     input_data_filtered = input_data[trained_features]
 
     # Apply scaling using the loaded scaler
@@ -99,23 +100,6 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_scaled
-
-# Explanation function
-def explain_prediction(input_data_scaled, classifier):
-    explainer = shap.Explainer(classifier, input_data_scaled)
-    shap_values = explainer(input_data_scaled)
-
-    # SHAP bar plot
-    plt.figure(figsize=(10, 6))
-    shap.summary_plot(shap_values.values, input_data_scaled, plot_type="bar")
-    st.pyplot(plt)
-
-    explanation_text = "**Feature Impact on Prediction:**\n\n"
-    for feature, shap_value in zip(input_data_scaled.columns, shap_values.values[0]):
-        explanation_text += (
-            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with SHAP value {shap_value:.4f}\n"
-        )
-    return explanation_text
 
 # Main Streamlit app
 def main():
@@ -156,24 +140,6 @@ def main():
             st.success(f'Your loan is {result}', icon="✅")
         else:
             st.error(f'Your loan is {result}', icon="❌")
-
-        # Explain the prediction
-        st.header("Explanation of Prediction")
-        explanation_text = explain_prediction(input_data_scaled, classifier)
-        st.write(explanation_text)
-
-    # Download database button
-    if st.button("Download Database"):
-        if os.path.exists("loan_data.db"):
-            with open("loan_data.db", "rb") as f:
-                st.download_button(
-                    label="Download SQLite Database",
-                    data=f,
-                    file_name="loan_data.db",
-                    mime="application/octet-stream"
-                )
-        else:
-            st.error("Database file not found.")
 
 if __name__ == '__main__':
     main()
