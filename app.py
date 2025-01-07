@@ -8,7 +8,7 @@ import shap
 import matplotlib.pyplot as plt
 
 # URL to the Logistic Regression model file in your GitHub repository
-url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic Regression_model.pkl"
+url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic%20Regression_model.pkl"
 
 # Download the Logistic Regression model file and save it locally
 response = requests.get(url)
@@ -20,6 +20,10 @@ with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
     loaded_model_dict = pickle.load(pickle_in)
     classifier = loaded_model_dict['model']  # The trained Logistic Regression model
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
+
+# Load the scaler used during training
+with open("/path/to/scaler.pkl", "rb") as scaler_file:  # Update this path
+    scaler = pickle.load(scaler_file)
 
 # Initialize SQLite database
 def init_db():
@@ -79,8 +83,11 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Filter to only include features used by the model
     input_data_filtered = input_data[trained_features]
 
+    # Apply scaling using the loaded scaler
+    input_data_scaled = scaler.transform(input_data_filtered)
+
     # Model prediction (0 = Rejected, 1 = Approved)
-    prediction = classifier.predict(input_data_filtered)
+    prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
