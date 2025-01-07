@@ -102,39 +102,40 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     return pred_label, input_data_filtered
 
 def explain_prediction(input_data_scaled, final_result):
-   def explain_prediction(input_data_scaled, final_result):
-    # Use SHAP LinearExplainer for logistic regression
-    explainer = shap.LinearExplainer(classifier, input_data_scaled)
-    shap_values = explainer.shap_values(input_data_scaled)
+    try:
+        # Use SHAP LinearExplainer for logistic regression
+        explainer = shap.LinearExplainer(classifier, input_data_scaled)
+        shap_values = explainer.shap_values(input_data_scaled)
 
-    # Extract SHAP values for the relevant class (binary classification)
-    shap_values_for_class = shap_values[0]
+        # Extract SHAP values for the relevant class
+        shap_values_for_class = shap_values[0]
 
-    # Debug: Print the SHAP values and input data
-    print("SHAP Values:", shap_values_for_class)
-    print("Input Data (Scaled):", input_data_scaled)
+        explanation_text = f"**Why your loan is {final_result}:**\n\n"
+        for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
+            explanation_text += (
+                f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
+            )
 
-    explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
-        explanation_text += (
-            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
-        )
+        if final_result == 'Rejected':
+            explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
+        else:
+            explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
-    if final_result == 'Rejected':
-        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
-    else:
-        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
+        # Generate the SHAP bar plot
+        plt.figure(figsize=(8, 5))
+        colors = ['green' if value > 0 else 'red' for value in shap_values_for_class]
+        plt.barh(input_data_scaled.columns, shap_values_for_class, color=colors)
+        plt.xlabel("SHAP Value (Impact on Prediction)")
+        plt.ylabel("Features")
+        plt.title("Feature Contributions to Prediction")
+        plt.tight_layout()
 
-    # Generate the SHAP bar plot
-    plt.figure(figsize=(8, 5))
-    colors = ['green' if value > 0 else 'red' for value in shap_values_for_class]
-    plt.barh(input_data_scaled.columns, shap_values_for_class, color=colors)
-    plt.xlabel("SHAP Value (Impact on Prediction)")
-    plt.ylabel("Features")
-    plt.title("Feature Contributions to Prediction")
-    plt.tight_layout()
+        return explanation_text, plt
 
-    return explanation_text, plt
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in explain_prediction: {e}")
+        return None, None
 
 # Main Streamlit app
 def main():
@@ -157,7 +158,6 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
-        # Call the prediction function
         result, input_data = prediction(
             Credit_History,
             Education_1,
@@ -166,12 +166,12 @@ def main():
             Loan_Amount_Term
         )
 
-        # Save data to the database
+        # Save data to database
         save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
                          Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
                          Loan_Amount_Term, result)
 
-        # Display the prediction result
+        # Display the prediction
         if result == "Approved":
             st.success(f'Your loan is {result}', icon="✅")
         else:
@@ -180,8 +180,12 @@ def main():
         # Explain the prediction
         st.header("Explanation of Prediction")
         explanation_text, bar_chart = explain_prediction(input_data, result)
-        st.write(explanation_text)
-        st.pyplot(bar_chart)
+
+        if explanation_text and bar_chart:
+            st.write(explanation_text)
+            st.pyplot(bar_chart)
+        else:
+            st.error("Unable to generate SHAP explanation. Please try again.")
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
@@ -198,4 +202,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
