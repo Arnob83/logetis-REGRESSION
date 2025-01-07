@@ -101,13 +101,14 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
+# SHAP explanation function
 def explain_prediction(input_data_scaled, final_result):
-    # Use SHAP LinearExplainer for logistic regression
-    explainer = shap.LinearExplainer(classifier, input_data_scaled)
-    shap_values = explainer.shap_values(input_data_scaled)
+    # Use SHAP Explainer for general explanation
+    explainer = shap.Explainer(classifier, input_data_scaled)
+    shap_values = explainer(input_data_scaled)
 
-    # Select SHAP values for the predicted class
-    shap_values_for_class = shap_values[0]
+    # Extract SHAP values for the prediction
+    shap_values_for_class = shap_values.values[0]
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
@@ -174,12 +175,8 @@ def main():
         # Explain the prediction
         st.header("Explanation of Prediction")
         explanation_text, bar_chart = explain_prediction(input_data, result)
-
-        if explanation_text and bar_chart:
-            st.write(explanation_text)
-            st.pyplot(bar_chart)
-        else:
-            st.error("Unable to generate SHAP explanation. Please try again.")
+        st.write(explanation_text)
+        st.pyplot(bar_chart)
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
