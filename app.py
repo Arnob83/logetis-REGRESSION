@@ -2,10 +2,10 @@ import sqlite3
 import pickle
 import streamlit as st
 import pandas as pd
-import requests
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 import matplotlib.pyplot as plt
+import requests
 
 # URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
@@ -71,10 +71,14 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 # Prediction function
 @st.cache_data
 def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
-    input_data = pd.DataFrame([[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-                              columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"])
+    input_data = pd.DataFrame(
+        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
+        columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
+    )
+    input_data = input_data[trained_features]  # Ensure proper column alignment
     input_data_scaled = scaler.transform(input_data)
-    pred_label = "Approved" if classifier.predict(input_data_scaled)[0] == 1 else "Rejected"
+    prediction = classifier.predict(input_data_scaled)
+    pred_label = "Approved" if prediction[0] == 1 else "Rejected"
     return pred_label, input_data
 
 # Explain prediction using LIME
@@ -85,29 +89,22 @@ def explain_prediction(input_data, result):
         class_names=["Rejected", "Approved"],
         mode="classification"
     )
-
     explanation = explainer.explain_instance(
         data_row=input_data.iloc[0].to_numpy(),
         predict_fn=classifier.predict_proba
     )
-
-    # Show explanation bar chart
     fig = explanation.as_pyplot_figure()
     st.pyplot(fig)
-
-    # Generate explanation text
     explanation_text = f"**Why your loan is {result}:**\n\n"
     for feature, weight in explanation.as_list():
         contribution = "Positive" if weight > 0 else "Negative"
         explanation_text += f"- **{feature}**: {contribution} contribution with a weight of {weight:.4f}\n"
-
     st.write(explanation_text)
 
 # Main Streamlit app
 def main():
     init_db()
     st.title("Loan Prediction ML App")
-
     Gender = st.selectbox("Gender", ["Male", "Female"])
     Married = st.selectbox("Married", ["Yes", "No"])
     Dependents = st.selectbox("Dependents", [0, 1, 2, 3, 4, 5])
