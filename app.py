@@ -3,15 +3,22 @@ import pickle
 import streamlit as st
 import pandas as pd
 import requests
+import os
 import shap
 import matplotlib.pyplot as plt
 
 # URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
+scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Download the Logistic Regression model file and save it locally
 response = requests.get(model_url)
 with open("Logistic_Regression_model.pkl", "wb") as file:
+    file.write(response.content)
+
+# Download the scaler file and save it locally
+response = requests.get(scaler_url)
+with open("scaler.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model and feature names
@@ -33,8 +40,8 @@ def init_db():
         self_employed TEXT,
         loan_amount REAL,
         property_area TEXT,
-        credit_history REAL,
-        education REAL,
+        credit_history TEXT,
+        education TEXT,
         applicant_income REAL,
         coapplicant_income REAL,
         loan_amount_term REAL,
@@ -64,19 +71,36 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 
 # Prediction function
 @st.cache_data
-def prediction(input_data):
-    # Predict the result using the classifier
-    pred = classifier.predict(input_data)
-    pred_label = 'Approved' if pred[0] == 1 else 'Rejected'
-    return pred_label
+def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
+    # Map user inputs to numeric values
+    Education_1 = 0 if Education_1 == "Graduate" else 1
+    Credit_History = 0 if Credit_History == "Unclear Debts" else 1
 
-# Explain prediction using SHAP
-def explain_prediction(input_data, final_result):
-    explainer = shap.Explainer(classifier, input_data)
-    shap_values = explainer(input_data)
+    # Create input data as a DataFrame
+    input_data = pd.DataFrame(
+        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
+        columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
+    )
+
+    # Reorder and filter columns to match trained features
+    input_data_filtered = input_data[trained_features]
+
+    # Model prediction (0 = Rejected, 1 = Approved)
+    prediction = classifier.predict(input_data_filtered)
+    pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
+    return pred_label, input_data_filtered
+
+def explain_prediction(input_data_filtered, final_result):
+    # Use SHAP Explainer
+    explainer = shap.Explainer(classifier, input_data_filtered)
+    shap_values = explainer(input_data_filtered)
+
+    # Debugging: Ensure SHAP values are computed correctly
+    print("SHAP Values:", shap_values.values)
+    print("Feature Names:", input_data_filtered.columns)
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(input_data.columns, shap_values.values[0]):
+    for feature, shap_value in zip(input_data_filtered.columns, shap_values.values[0]):
         explanation_text += (
             f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
         )
@@ -86,10 +110,10 @@ def explain_prediction(input_data, final_result):
     else:
         explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
-    # Generate the SHAP bar plot
+    # Generate SHAP bar plot
     plt.figure(figsize=(8, 5))
     colors = ['green' if value > 0 else 'red' for value in shap_values.values[0]]
-    plt.barh(input_data.columns, shap_values.values[0], color=colors)
+    plt.barh(input_data_filtered.columns, shap_values.values[0], color=colors)
     plt.xlabel("SHAP Value (Impact on Prediction)")
     plt.ylabel("Features")
     plt.title("Feature Contributions to Prediction")
@@ -111,21 +135,22 @@ def main():
     Self_Employed = st.selectbox("Self Employed", ("Yes", "No"))
     Loan_Amount = st.number_input("Loan Amount", min_value=0.0)
     Property_Area = st.selectbox("Property Area", ("Urban", "Rural", "Semi-urban"))
-    Credit_History = st.number_input("Credit History (0: Unclear Debts, 1: Clear Debts)", min_value=0.0, max_value=1.0)
-    Education_1 = st.number_input("Education (0: Graduate, 1: Under_Graduate)", min_value=0, max_value=1)
+    Credit_History = st.selectbox("Credit History", ("Unclear Debts", "Clear Debts"))
+    Education_1 = st.selectbox('Education', ("Under_Graduate", "Graduate"))
     ApplicantIncome = st.number_input("Applicant's yearly Income", min_value=0.0)
     CoapplicantIncome = st.number_input("Co-applicant's yearly Income", min_value=0.0)
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
-        # Prepare input data for prediction
-        input_data = pd.DataFrame(
-            [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-            columns=trained_features
+        result, input_data_filtered = prediction(
+            Credit_History,
+            Education_1,
+            ApplicantIncome,
+            CoapplicantIncome,
+            Loan_Amount_Term
         )
 
-        # Predict and save the result
-        result = prediction(input_data)
+        # Save data to database
         save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
                          Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
                          Loan_Amount_Term, result)
@@ -138,7 +163,7 @@ def main():
 
         # Explain the prediction
         st.header("Explanation of Prediction")
-        explanation_text, bar_chart = explain_prediction(input_data, result)
+        explanation_text, bar_chart = explain_prediction(input_data_filtered, result)
         st.write(explanation_text)
         st.pyplot(bar_chart)
 
