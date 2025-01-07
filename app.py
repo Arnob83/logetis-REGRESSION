@@ -13,7 +13,7 @@ scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/
 
 # Download the Logistic Regression model file and save it locally
 response = requests.get(model_url)
-with open("Logistic_Regression_model.pkl", "wb") as file:
+with open("LGR_model.pkl", "wb") as file:
     file.write(response.content)
 
 # Download the scaler file and save it locally
@@ -22,7 +22,7 @@ with open("scaler.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model and feature names
-with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
+with open("LGR_model.pkl", "rb") as pickle_in:
     loaded_model_dict = pickle.load(pickle_in)
     classifier = loaded_model_dict['model']  # The trained Logistic Regression model
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
