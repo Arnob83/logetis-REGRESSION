@@ -100,9 +100,12 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
 # Explain prediction using LIME
 def explain_prediction(input_data, result):
+    # Ensure input_data is in numpy array format
+    input_data_np = input_data.to_numpy()
+
     # Create a LIME explainer
     explainer = LimeTabularExplainer(
-        training_data=np.array(input_data),  # Pass unscaled training data here
+        training_data=input_data_np,  # Use filtered input data
         feature_names=trained_features,
         class_names=['Rejected', 'Approved'],
         mode='classification'
@@ -110,7 +113,7 @@ def explain_prediction(input_data, result):
 
     # Explain the prediction
     explanation = explainer.explain_instance(
-        data_row=input_data.iloc[0],  # Single instance to explain
+        data_row=input_data.iloc[0].to_numpy(),  # Single instance to explain
         predict_fn=classifier.predict_proba  # Probability prediction function
     )
 
