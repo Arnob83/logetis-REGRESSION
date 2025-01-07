@@ -4,8 +4,8 @@ import streamlit as st
 import pandas as pd
 import requests
 import os
-import shap
 import matplotlib.pyplot as plt
+from lime.lime_tabular import LimeTabularExplainer
 
 # URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
@@ -90,39 +90,32 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Reorder and filter columns to match trained features
     input_data_filtered = input_data[trained_features]
 
+    # Apply scaling using the loaded scaler
+    input_data_scaled = scaler.transform(input_data_filtered)
+
     # Model prediction (0 = Rejected, 1 = Approved)
-    prediction = classifier.predict(input_data_filtered)
+    prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-# Explanation function
-def explain_prediction(input_data_filtered, final_result):
-    # Use SHAP Explainer
-    explainer = shap.Explainer(classifier, input_data_filtered)
-    shap_values = explainer(input_data_filtered)
+# LIME explanation function
+def lime_explain(input_data_filtered, scaled_data, classifier):
+    explainer = LimeTabularExplainer(
+        training_data=scaled_data,
+        feature_names=trained_features,
+        class_names=["Rejected", "Approved"],
+        mode="classification"
+    )
 
-    # Extract SHAP values for the prediction
-    explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(input_data_filtered.columns, shap_values.values[0]):
-        explanation_text += (
-            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.4f}\n"
-        )
+    # Generate explanation for the first input instance
+    exp = explainer.explain_instance(
+        data_row=scaled_data[0],
+        predict_fn=classifier.predict_proba
+    )
 
-    if final_result == 'Rejected':
-        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
-    else:
-        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
-
-    # Generate SHAP bar plot
-    plt.figure(figsize=(8, 5))
-    colors = ['green' if value > 0 else 'red' for value in shap_values.values[0]]
-    plt.barh(input_data_filtered.columns, shap_values.values[0], color=colors)
-    plt.xlabel("SHAP Value (Impact on Prediction)")
-    plt.ylabel("Features")
-    plt.title("Feature Contributions to Prediction")
-    plt.tight_layout()
-
-    return explanation_text, plt
+    # Plot the explanation
+    fig = exp.as_pyplot_figure()
+    return fig
 
 # Main Streamlit app
 def main():
@@ -164,11 +157,11 @@ def main():
         else:
             st.error(f'Your loan is {result}', icon="❌")
 
-        # Explain the prediction
+        # Explain the prediction using LIME
         st.header("Explanation of Prediction")
-        explanation_text, bar_chart = explain_prediction(input_data, result)
-        st.write(explanation_text)
-        st.pyplot(bar_chart)
+        scaled_data = scaler.transform(input_data)  # Scale the input data
+        lime_plot = lime_explain(input_data, scaled_data, classifier)
+        st.pyplot(lime_plot)
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
