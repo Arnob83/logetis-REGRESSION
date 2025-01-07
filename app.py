@@ -102,12 +102,17 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     return pred_label, input_data_filtered
 
 def explain_prediction(input_data_scaled, final_result):
+   def explain_prediction(input_data_scaled, final_result):
     # Use SHAP LinearExplainer for logistic regression
     explainer = shap.LinearExplainer(classifier, input_data_scaled)
     shap_values = explainer.shap_values(input_data_scaled)
 
-    # Extract SHAP values for the relevant class
-    shap_values_for_class = shap_values[0]  # Assuming binary classification
+    # Extract SHAP values for the relevant class (binary classification)
+    shap_values_for_class = shap_values[0]
+
+    # Debug: Print the SHAP values and input data
+    print("SHAP Values:", shap_values_for_class)
+    print("Input Data (Scaled):", input_data_scaled)
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
@@ -152,6 +157,7 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
+        # Call the prediction function
         result, input_data = prediction(
             Credit_History,
             Education_1,
@@ -160,12 +166,12 @@ def main():
             Loan_Amount_Term
         )
 
-        # Save data to database
+        # Save data to the database
         save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
                          Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
                          Loan_Amount_Term, result)
 
-        # Display the prediction
+        # Display the prediction result
         if result == "Approved":
             st.success(f'Your loan is {result}', icon="✅")
         else:
@@ -192,3 +198,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
