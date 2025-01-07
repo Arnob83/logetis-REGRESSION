@@ -27,6 +27,11 @@ with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
     classifier = loaded_model_dict['model']  # The trained Logistic Regression model
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
 
+# Load the scaler used during training
+with open("scaler.pkl", "rb") as scaler_file:
+    scaler_dict = pickle.load(scaler_file)  # Load the dictionary
+    scaler = scaler_dict['scaler']  # Extract the scaler object
+
 # Function to initialize the SQLite database
 def init_db():
     conn = sqlite3.connect("loan_data.db")
@@ -90,15 +95,13 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
+# Explanation function
 def explain_prediction(input_data_filtered, final_result):
     # Use SHAP Explainer
     explainer = shap.Explainer(classifier, input_data_filtered)
     shap_values = explainer(input_data_filtered)
 
-    # Debugging: Ensure SHAP values are computed correctly
-    print("SHAP Values:", shap_values.values)
-    print("Feature Names:", input_data_filtered.columns)
-
+    # Extract SHAP values for the prediction
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(input_data_filtered.columns, shap_values.values[0]):
         explanation_text += (
@@ -142,7 +145,7 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
-        result, input_data_filtered = prediction(
+        result, input_data = prediction(
             Credit_History,
             Education_1,
             ApplicantIncome,
@@ -163,7 +166,7 @@ def main():
 
         # Explain the prediction
         st.header("Explanation of Prediction")
-        explanation_text, bar_chart = explain_prediction(input_data_filtered, result)
+        explanation_text, bar_chart = explain_prediction(input_data, result)
         st.write(explanation_text)
         st.pyplot(bar_chart)
 
