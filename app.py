@@ -1,19 +1,19 @@
 import sqlite3
 import pickle
 import streamlit as st
+import shap
+import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
-import shap
-import matplotlib.pyplot as plt
 
-# URL to the Logistic Regression model file in your GitHub repository
-model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/LGR_model.pkl"
+# URL to the Logistic Regression model file and scaler file in your GitHub repository
+model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
 scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Download the Logistic Regression model file and save it locally
 response = requests.get(model_url)
-with open("LGR_model.pkl", "wb") as file:
+with open("Logistic_Regression_model.pkl", "wb") as file:
     file.write(response.content)
 
 # Download the scaler file and save it locally
@@ -22,15 +22,14 @@ with open("scaler.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model and feature names
-with open("LGR_model.pkl", "rb") as pickle_in:
+with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
     loaded_model_dict = pickle.load(pickle_in)
     classifier = loaded_model_dict['model']  # The trained Logistic Regression model
     trained_features = loaded_model_dict['feature_names']  # Extract the feature names
 
 # Load the scaler used during training
 with open("scaler.pkl", "rb") as scaler_file:
-    scaler_dict = pickle.load(scaler_file)  # Load the dictionary
-    scaler = scaler_dict['scaler']  # Extract the actual scaler object
+    scaler = pickle.load(scaler_file)
 
 # Initialize SQLite database
 def init_db():
@@ -52,8 +51,7 @@ def init_db():
         loan_amount_term REAL,
         result TEXT
     )
-    """
-    )
+    """)
     conn.commit()
     conn.close()
 
@@ -100,7 +98,24 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
-    return pred_label, input_data_filtered
+    return pred_label, input_data_scaled
+
+# Explanation function
+def explain_prediction(input_data_scaled, classifier):
+    explainer = shap.Explainer(classifier, input_data_scaled)
+    shap_values = explainer(input_data_scaled)
+
+    # SHAP bar plot
+    plt.figure(figsize=(10, 6))
+    shap.summary_plot(shap_values.values, input_data_scaled, plot_type="bar")
+    st.pyplot(plt)
+
+    explanation_text = "**Feature Impact on Prediction:**\n\n"
+    for feature, shap_value in zip(input_data_scaled.columns, shap_values.values[0]):
+        explanation_text += (
+            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with SHAP value {shap_value:.4f}\n"
+        )
+    return explanation_text
 
 # Main Streamlit app
 def main():
@@ -123,7 +138,7 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
-        result, input_data = prediction(
+        result, input_data_scaled = prediction(
             Credit_History,
             Education_1,
             ApplicantIncome,
@@ -131,8 +146,34 @@ def main():
             Loan_Amount_Term
         )
 
+        # Save data to database
+        save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
+                         Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
+                         Loan_Amount_Term, result)
+
         # Display the prediction
-        st.success(f'Your loan is {result}') if result == "Approved" else st.error(f'Your loan is {result}')
+        if result == "Approved":
+            st.success(f'Your loan is {result}', icon="✅")
+        else:
+            st.error(f'Your loan is {result}', icon="❌")
+
+        # Explain the prediction
+        st.header("Explanation of Prediction")
+        explanation_text = explain_prediction(input_data_scaled, classifier)
+        st.write(explanation_text)
+
+    # Download database button
+    if st.button("Download Database"):
+        if os.path.exists("loan_data.db"):
+            with open("loan_data.db", "rb") as f:
+                st.download_button(
+                    label="Download SQLite Database",
+                    data=f,
+                    file_name="loan_data.db",
+                    mime="application/octet-stream"
+                )
+        else:
+            st.error("Database file not found.")
 
 if __name__ == '__main__':
     main()
