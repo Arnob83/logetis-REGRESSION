@@ -2,11 +2,10 @@ import sqlite3
 import pickle
 import streamlit as st
 import pandas as pd
-import numpy as np
 import requests
-import os
-import matplotlib.pyplot as plt
+import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
+import matplotlib.pyplot as plt
 
 # URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
@@ -94,14 +93,12 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Apply scaling using the loaded scaler
     input_data_scaled = scaler.transform(input_data_filtered)
 
-    # Convert scaled data back to DataFrame with feature names
-    input_data_scaled = pd.DataFrame(input_data_scaled, columns=trained_features)
-
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
+# Explain prediction using LIME
 def explain_prediction(input_data, result):
     # Create a LIME explainer
     explainer = LimeTabularExplainer(
@@ -118,12 +115,21 @@ def explain_prediction(input_data, result):
     )
 
     # Display the LIME explanation as a bar chart
-    explanation.show_in_notebook(show_table=True)
-    plt.figure(figsize=(8, 5))
-    explanation.as_pyplot_figure()
-    st.pyplot(plt)
+    fig = explanation.as_pyplot_figure()
+    st.pyplot(fig)
 
-    return explanation
+    # Generate explanation text
+    explanation_text = f"**Why your loan is {result}:**\n\n"
+    for feature, weight in explanation.as_list():
+        contribution = "Positive" if weight > 0 else "Negative"
+        explanation_text += f"- **{feature}**: {contribution} contribution with a weight of {weight:.4f}\n"
+
+    if result == "Rejected":
+        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
+    else:
+        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
+
+    st.write(explanation_text)
 
 # Main Streamlit app
 def main():
