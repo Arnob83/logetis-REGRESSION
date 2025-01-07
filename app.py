@@ -3,9 +3,9 @@ import pickle
 import streamlit as st
 import pandas as pd
 import requests
-import matplotlib.pyplot as plt
-import shap
 import os
+import shap
+import matplotlib.pyplot as plt
 
 # URLs to the model and scaler files in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
@@ -99,36 +99,36 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
-    return pred_label, input_data_scaled
+    return pred_label, input_data_filtered
 
 # Explanation function
-def explain_prediction(input_data_scaled, final_result):
-    explainer = shap.Explainer(classifier.predict_proba, input_data_scaled)
-    shap_values = explainer(input_data_scaled)
+def explain_prediction(input_data, final_result):
+    explainer = shap.Explainer(classifier, input_data)
+    shap_values = explainer(input_data)
 
-    # SHAP bar plot
-    shap_values_for_class = shap_values[:, 1].values[0]  # Class 1 (Approved)
+    shap_values_for_class = shap_values.values[0]
 
-    plt.figure(figsize=(10, 6))
-    colors = ["green" if val > 0 else "red" for val in shap_values_for_class]
-    plt.barh(input_data_scaled.columns, shap_values_for_class, color=colors)
-    plt.xlabel("SHAP Value (Impact on Prediction)")
-    plt.ylabel("Features")
-    plt.title("Feature Contributions to Prediction")
-    st.pyplot(plt)
-
-    # Generate explanation text
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(input_data_scaled.columns, shap_values_for_class):
+    for feature, shap_value in zip(input_data.columns, shap_values_for_class):
         explanation_text += (
             f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.2f}\n"
         )
+
     if final_result == 'Rejected':
         explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
     else:
         explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
-    return explanation_text
+    # Generate the SHAP bar plot
+    plt.figure(figsize=(8, 5))
+    colors = ['green' if value > 0 else 'red' for value in shap_values_for_class]
+    plt.barh(input_data.columns, shap_values_for_class, color=colors)
+    plt.xlabel("SHAP Value (Impact on Prediction)")
+    plt.ylabel("Features")
+    plt.title("Feature Contributions to Prediction")
+    plt.tight_layout()
+
+    return explanation_text, plt
 
 # Main Streamlit app
 def main():
@@ -151,7 +151,7 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
-        result, input_data_scaled = prediction(
+        result, input_data = prediction(
             Credit_History,
             Education_1,
             ApplicantIncome,
@@ -172,8 +172,9 @@ def main():
 
         # Explain the prediction
         st.header("Explanation of Prediction")
-        explanation_text = explain_prediction(input_data_scaled, result)
+        explanation_text, bar_chart = explain_prediction(input_data, result)
         st.write(explanation_text)
+        st.pyplot(bar_chart)
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
