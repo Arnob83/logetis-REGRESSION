@@ -1,9 +1,10 @@
 streamlit==1.41.1
 scikit-learn==1.2.2
-numpy==1.23.5  # A more stable version to avoid potential compatibility issues
-pandas==1.5.3  # Compatible with scikit-learn 1.2.2
-matplotlib==3.7.1  # Compatible with Python 3.9 and 3.10
-shap==0.39.0  # Avoids shapely-related build issues
-shapely==1.8.5.post1  # A version that avoids build issues
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.8.0
+shap==0.46.0
+shapely>=2.0.0
 lime==0.2.0.1
 requests==2.31.0
+
