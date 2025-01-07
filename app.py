@@ -1,6 +1,8 @@
 import sqlite3
 import pickle
 import streamlit as st
+import shap
+import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
@@ -99,12 +101,64 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_scaled
 
+# Explanation function
+def explain_prediction(input_data, final_result):
+    explainer = shap.TreeExplainer(classifier)
+    shap_values = explainer.shap_values(input_data)
+    shap_values_for_input = shap_values[0]
+
+    feature_names = input_data.columns
+    explanation_text = f"**Why your loan is {final_result}:**\n\n"
+    for feature, shap_value in zip(feature_names, shap_values_for_input):
+        explanation_text += (
+            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.2f}\n"
+        )
+    if final_result == 'Rejected':
+        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
+    else:
+        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
+
+    plt.figure(figsize=(8, 5))
+    plt.barh(feature_names, shap_values_for_input, color=["green" if val > 0 else "red" for val in shap_values_for_input])
+    plt.xlabel("SHAP Value (Impact on Prediction)")
+    plt.ylabel("Features")
+    plt.title("Feature Contributions to Prediction")
+    plt.tight_layout()
+    return explanation_text, plt
+
 # Main Streamlit app
 def main():
     # Initialize database
     init_db()
 
-    st.title("Loan Prediction ML App")
+    # App layout
+    st.markdown(
+        """
+        <style>
+        .main-container {
+            background-color: #f4f6f9;
+            border: 2px solid #e6e8eb;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .header {
+            background-color: #4caf50;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .header h1 {
+            color: white;
+        }
+        </style>
+        <div class="main-container">
+        <div class="header">
+        <h1>Loan Prediction ML App</h1>
+        </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # User inputs
     Gender = st.selectbox("Gender", ("Male", "Female"))
@@ -138,6 +192,12 @@ def main():
             st.success(f'Your loan is {result}', icon="✅")
         else:
             st.error(f'Your loan is {result}', icon="❌")
+
+        # Explain the prediction
+        st.header("Explanation of Prediction")
+        explanation_text, bar_chart = explain_prediction(input_data_scaled, result)
+        st.write(explanation_text)
+        st.pyplot(bar_chart)
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
