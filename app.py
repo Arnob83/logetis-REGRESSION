@@ -29,7 +29,8 @@ with open("LGR_model.pkl", "rb") as pickle_in:
 
 # Load the scaler used during training
 with open("scaler.pkl", "rb") as scaler_file:
-    scaler = pickle.load(scaler_file)
+    scaler_dict = pickle.load(scaler_file)  # Load the dictionary
+    scaler = scaler_dict['scaler']  # Extract the actual scaler object
 
 # Initialize SQLite database
 def init_db():
