@@ -2,6 +2,7 @@ import sqlite3
 import pickle
 import streamlit as st
 import pandas as pd
+import numpy as np
 import requests
 import os
 import matplotlib.pyplot as plt
@@ -93,29 +94,36 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Apply scaling using the loaded scaler
     input_data_scaled = scaler.transform(input_data_filtered)
 
+    # Convert scaled data back to DataFrame with feature names
+    input_data_scaled = pd.DataFrame(input_data_scaled, columns=trained_features)
+
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_scaled)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-# LIME explanation function
-def lime_explain(input_data_filtered, scaled_data, classifier):
+def explain_prediction(input_data, result):
+    # Create a LIME explainer
     explainer = LimeTabularExplainer(
-        training_data=scaled_data,
+        training_data=np.array(input_data),  # Pass unscaled training data here
         feature_names=trained_features,
-        class_names=["Rejected", "Approved"],
-        mode="classification"
+        class_names=['Rejected', 'Approved'],
+        mode='classification'
     )
 
-    # Generate explanation for the first input instance
-    exp = explainer.explain_instance(
-        data_row=scaled_data[0],
-        predict_fn=classifier.predict_proba
+    # Explain the prediction
+    explanation = explainer.explain_instance(
+        data_row=input_data.iloc[0],  # Single instance to explain
+        predict_fn=classifier.predict_proba  # Probability prediction function
     )
 
-    # Plot the explanation
-    fig = exp.as_pyplot_figure()
-    return fig
+    # Display the LIME explanation as a bar chart
+    explanation.show_in_notebook(show_table=True)
+    plt.figure(figsize=(8, 5))
+    explanation.as_pyplot_figure()
+    st.pyplot(plt)
+
+    return explanation
 
 # Main Streamlit app
 def main():
@@ -157,11 +165,9 @@ def main():
         else:
             st.error(f'Your loan is {result}', icon="❌")
 
-        # Explain the prediction using LIME
+        # Explain the prediction
         st.header("Explanation of Prediction")
-        scaled_data = scaler.transform(input_data)  # Scale the input data
-        lime_plot = lime_explain(input_data, scaled_data, classifier)
-        st.pyplot(lime_plot)
+        explain_prediction(input_data, result)
 
     # Add a download button for the SQLite database
     if st.button("Download Database"):
