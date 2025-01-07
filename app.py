@@ -8,7 +8,7 @@ import shap
 import matplotlib.pyplot as plt
 
 # URL to the Logistic Regression model file in your GitHub repository
-model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic%20Regression_model.pkl"
+model_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/LGR_model.pkl"
 scaler_url = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Download the Logistic Regression model file and save it locally
