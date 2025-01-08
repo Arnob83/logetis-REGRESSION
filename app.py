@@ -1,34 +1,14 @@
 import sqlite3
 import pickle
-import requests
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
 
-# Function to download the model and scaler from GitHub URLs
-def download_file(url, save_path):
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(save_path, 'wb') as f:
-            f.write(response.content)
-    else:
-        raise Exception(f"Failed to download file from {url}")
-
 # Paths to the model and scaler files
-MODEL_PATH = "Logistic_Regression_model.pkl"
-SCALER_PATH = "scaler.pkl"
-
-# URLs to download files from GitHub
-MODEL_URL = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
-SCALER_URL = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
-
-# Check if the files already exist to avoid unnecessary downloads
-if not os.path.exists(MODEL_PATH):
-    download_file(MODEL_URL, MODEL_PATH)
-if not os.path.exists(SCALER_PATH):
-    download_file(SCALER_URL, SCALER_PATH)
+MODEL_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
+SCALER_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Load the trained model and feature names
 with open(MODEL_PATH, 'rb') as model_file:
@@ -89,23 +69,20 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     Education_1 = 0 if Education_1 == "Graduate" else 1
     Credit_History = 0 if Credit_History == "Unclear Debts" else 1
 
-    # Create input data as a DataFrame
+    # Create input data as a DataFrame with the correct column names
     input_data = pd.DataFrame(
         [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-        columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
+        columns=trained_features  # Corrected to match trained features
     )
 
-    # Reorder columns to match trained features
-    input_data_filtered = input_data[trained_features]
-
     # Scale the input data
-    input_data_scaled = scaler.transform(input_data_filtered)
+    input_data_scaled = scaler.transform(input_data)
 
     # Predict the result
     prediction = classifier.predict(input_data_scaled)
     probabilities = classifier.predict_proba(input_data_scaled)[0]  # Get probabilities
 
-    return prediction[0], probabilities, input_data_filtered, input_data_scaled
+    return prediction[0], probabilities, input_data, input_data_scaled
 
 # Main Streamlit app
 def main():
