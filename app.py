@@ -41,7 +41,7 @@ scaler = load_scaler()
 
 # Function to initialize the SQLite database
 def init_db():
-    conn = sqlite3.connect(":memory:")  # In-memory database for Streamlit Cloud
+    conn = sqlite3.connect("loan_predictions.db")  # Local SQLite database file
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS loan_predictions (
@@ -148,13 +148,6 @@ def main():
         else:
             st.error(f"Your loan is Rejected! (Probability: {probabilities[0]:.2f})")
 
-        # Show prediction values and scaled values
-        st.subheader("Prediction Value")
-        st.write(input_data)
-
-        st.subheader("Input Data (Scaled)")
-        st.write(pd.DataFrame(input_data_scaled, columns=trained_features))
-
         # Plot feature contributions
         coefficients = classifier.coef_[0]
         feature_contributions = coefficients * input_data_scaled[0]
@@ -181,6 +174,15 @@ def main():
             else:
                 explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
             st.write(f"- {explanation}")
+
+    # Download database
+    with open("loan_predictions.db", "rb") as db_file:
+        st.download_button(
+            label="Download Database",
+            data=db_file,
+            file_name="loan_predictions.db",
+            mime="application/octet-stream"
+        )
 
 if __name__ == '__main__':
     main()
