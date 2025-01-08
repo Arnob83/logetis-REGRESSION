@@ -5,25 +5,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import requests
 
 # Paths to the model and scaler files
 MODEL_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
 SCALER_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
 
 # Load the trained model and feature names
-with open(MODEL_PATH, 'rb') as model_file:
-    loaded_model_dict = pickle.load(model_file)
-    classifier = loaded_model_dict['model']
-    trained_features = loaded_model_dict['feature_names']
+def load_model():
+    try:
+        model_response = requests.get(MODEL_PATH)
+        model_response.raise_for_status()
+        loaded_model_dict = pickle.loads(model_response.content)
+        classifier = loaded_model_dict["model"]
+        trained_features = loaded_model_dict["feature_names"]
+        return classifier, trained_features
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        st.stop()
 
 # Load the scaler
-with open(SCALER_PATH, 'rb') as scaler_file:
-    scaler_dict = pickle.load(scaler_file)
-    scaler = scaler_dict['scaler']
+def load_scaler():
+    try:
+        scaler_response = requests.get(SCALER_PATH)
+        scaler_response.raise_for_status()
+        scaler_dict = pickle.loads(scaler_response.content)
+        scaler = scaler_dict["scaler"]
+        return scaler
+    except Exception as e:
+        st.error(f"Error loading scaler: {e}")
+        st.stop()
+
+classifier, trained_features = load_model()
+scaler = load_scaler()
 
 # Function to initialize the SQLite database
 def init_db():
-    conn = sqlite3.connect("loan_data.db")
+    conn = sqlite3.connect(":memory:")  # In-memory database for Streamlit Cloud
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS loan_predictions (
@@ -43,13 +61,14 @@ def init_db():
     )
     """)
     conn.commit()
-    conn.close()
+    return conn
+
+conn = init_db()
 
 # Save prediction data to the database
-def save_to_database(gender, married, dependents, self_employed, loan_amount, property_area,
+def save_to_database(conn, gender, married, dependents, self_employed, loan_amount, property_area,
                      credit_history, education, applicant_income, coapplicant_income,
                      loan_amount_term, result):
-    conn = sqlite3.connect("loan_data.db")
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO loan_predictions (
@@ -61,7 +80,6 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
           credit_history, education, applicant_income, coapplicant_income,
           loan_amount_term, result))
     conn.commit()
-    conn.close()
 
 # Prediction function
 def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
@@ -89,37 +107,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
 # Main Streamlit app
 def main():
-    # Initialize database
-    init_db()
-
-    # App layout
-    st.markdown(
-        """
-        <style>
-        .main-container {
-            background-color: #f4f6f9;
-            border: 2px solid #e6e8eb;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        .header {
-            background-color: #4caf50;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .header h1 {
-            color: white;
-        }
-        </style>
-        <div class="main-container">
-        <div class="header">
-        <h1>Loan Prediction ML App</h1>
-        </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.title("Loan Prediction ML App")
 
     # User inputs
     Gender = st.selectbox("Gender", ("Male", "Female"))
@@ -135,6 +123,11 @@ def main():
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
     if st.button("Predict"):
+        # Validate inputs
+        if Loan_Amount <= 0 or ApplicantIncome <= 0 or Loan_Amount_Term <= 0:
+            st.error("Please provide valid inputs for Loan Amount, Income, and Loan Term.")
+            return
+
         # Run prediction
         result, probabilities, input_data, input_data_scaled = prediction(
             Credit_History,
@@ -145,15 +138,15 @@ def main():
         )
 
         # Save to database
-        save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area,
+        save_to_database(conn, Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area,
                          Credit_History, Education_1, ApplicantIncome, CoapplicantIncome,
                          Loan_Amount_Term, "Approved" if result == 1 else "Rejected")
 
         # Display the prediction
         if result == 1:
-            st.success(f"Your loan is Approved! (Probability: {probabilities[1]:.2f})", icon="✅")
+            st.success(f"Your loan is Approved! (Probability: {probabilities[1]:.2f})")
         else:
-            st.error(f"Your loan is Rejected! (Probability: {probabilities[0]:.2f})", icon="❌")
+            st.error(f"Your loan is Rejected! (Probability: {probabilities[0]:.2f})")
 
         # Show prediction values and scaled values
         st.subheader("Prediction Value")
@@ -162,17 +155,15 @@ def main():
         st.subheader("Input Data (Scaled)")
         st.write(pd.DataFrame(input_data_scaled, columns=trained_features))
 
-        # Calculate feature contributions
+        # Plot feature contributions
         coefficients = classifier.coef_[0]
         feature_contributions = coefficients * input_data_scaled[0]
 
-        # Create a DataFrame for visualization
         feature_df = pd.DataFrame({
             'Feature': trained_features,
             'Contribution': feature_contributions
         }).sort_values(by="Contribution", ascending=False)
 
-        # Plot feature contributions
         st.subheader("Feature Contributions")
         fig, ax = plt.subplots(figsize=(8, 5))
         colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
@@ -182,28 +173,5 @@ def main():
         ax.set_title("Feature Contributions to Prediction")
         st.pyplot(fig)
 
-        # Add explanations for the features
-        st.subheader("Feature Contribution Explanations")
-        for index, row in feature_df.iterrows():
-            if row['Contribution'] >= 0:
-                explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
-            else:
-                explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
-            st.write(f"- {explanation}")
-
-    # Add a download button for the SQLite database
-    if st.button("Download Database"):
-        if os.path.exists("loan_data.db"):
-            with open("loan_data.db", "rb") as db_file:
-                st.download_button(
-                    label="Download SQLite Database",
-                    data=db_file,
-                    file_name="loan_data.db",
-                    mime="application/octet-stream"
-                )
-        else:
-            st.error("Database file not found. Please try predicting a loan first to create the database.")
-
 if __name__ == '__main__':
     main()
-
