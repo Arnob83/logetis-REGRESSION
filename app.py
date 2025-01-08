@@ -173,5 +173,14 @@ def main():
         ax.set_title("Feature Contributions to Prediction")
         st.pyplot(fig)
 
+        # Add explanations for the features
+        st.subheader("Feature Contribution Explanations")
+        for _, row in feature_df.iterrows():
+            if row['Contribution'] >= 0:
+                explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
+            else:
+                explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
+            st.write(f"- {explanation}")
+
 if __name__ == '__main__':
     main()
