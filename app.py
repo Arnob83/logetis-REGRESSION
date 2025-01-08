@@ -5,10 +5,30 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import requests
 
 # Paths to the model and scaler files
-MODEL_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
-SCALER_PATH = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
+MODEL_URL = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/Logistic_Regression_model.pkl"
+SCALER_URL = "https://raw.githubusercontent.com/Arnob83/logetis-REGRESSION/main/scaler.pkl"
+
+MODEL_PATH = "Logistic_Regression_model.pkl"
+SCALER_PATH = "scaler.pkl"
+
+# Function to download files from a URL and save them locally
+def download_file(url, local_filename):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(local_filename, 'wb') as f:
+            f.write(response.content)
+    else:
+        raise Exception(f"Failed to download file from {url}")
+
+# Download the model and scaler if they do not exist
+if not os.path.exists(MODEL_PATH):
+    download_file(MODEL_URL, MODEL_PATH)
+
+if not os.path.exists(SCALER_PATH):
+    download_file(SCALER_URL, SCALER_PATH)
 
 # Load the trained model and feature names
 with open(MODEL_PATH, 'rb') as model_file:
