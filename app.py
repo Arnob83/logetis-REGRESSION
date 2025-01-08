@@ -92,8 +92,11 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Create input data as a DataFrame with the correct column names
     input_data = pd.DataFrame(
         [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-        columns=trained_features  # Corrected to match trained features
+        columns=trained_features  # Ensure the columns match the features the model was trained with
     )
+
+    # Ensure the input data has the correct feature names
+    input_data = input_data[trained_features]
 
     # Scale the input data using the scaler
     input_data_scaled = scaler.transform(input_data)
