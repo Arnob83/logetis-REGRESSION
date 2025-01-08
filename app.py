@@ -41,7 +41,7 @@ scaler = load_scaler()
 
 # Function to initialize the SQLite database
 def init_db():
-    conn = sqlite3.connect("loan_data.db")  # Local SQLite database file
+    conn = sqlite3.connect("loan_predictions.db")  # Local SQLite database file
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS loan_predictions (
@@ -148,8 +148,7 @@ def main():
         else:
             st.error(f"Your loan is Rejected! (Probability: {probabilities[0]:.2f})")
 
-        # Feature contribution explanations
-        st.subheader("Feature Contribution Explanations")
+        # Plot feature contributions
         coefficients = classifier.coef_[0]
         feature_contributions = coefficients * input_data_scaled[0]
 
@@ -158,6 +157,17 @@ def main():
             'Contribution': feature_contributions
         }).sort_values(by="Contribution", ascending=False)
 
+        st.subheader("Feature Contributions")
+        fig, ax = plt.subplots(figsize=(8, 5))
+        colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
+        ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
+        ax.set_xlabel("Contribution to Prediction")
+        ax.set_ylabel("Features")
+        ax.set_title("Feature Contributions to Prediction")
+        st.pyplot(fig)
+
+        # Add explanations for the features
+        st.subheader("Feature Contribution Explanations")
         for _, row in feature_df.iterrows():
             if row['Contribution'] >= 0:
                 explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
@@ -165,18 +175,18 @@ def main():
                 explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
             st.write(f"- {explanation}")
 
-    # Download database
-    if st.button("Download Database"):
-        if os.path.exists("loan_data.db"):
-            with open("loan_data.db", "rb") as db_file:
-                st.download_button(
-                    label="Download SQLite Database",
-                    data=db_file,
-                    file_name="loan_data.db",
-                    mime="application/octet-stream"
-                )
-        else:
-            st.error("Database file not found. Please try predicting a loan first to create the database.")
+    # Database download option
+    st.subheader("Download Database")
+    if os.path.exists("loan_predictions.db"):
+        with open("loan_predictions.db", "rb") as db_file:
+            st.download_button(
+                label="Download SQLite Database",
+                data=db_file,
+                file_name="loan_predictions.db",
+                mime="application/octet-stream"
+            )
+    else:
+        st.error("Database file not found. Please generate predictions to create the database.")
 
 if __name__ == '__main__':
     main()
