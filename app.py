@@ -95,7 +95,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
         columns=trained_features  # Corrected to match trained features
     )
 
-    # Scale the input data
+    # Scale the input data using the scaler
     input_data_scaled = scaler.transform(input_data)
 
     # Predict the result
