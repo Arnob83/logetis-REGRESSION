@@ -175,18 +175,14 @@ def main():
                 explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
             st.write(f"- {explanation}")
 
-    # Database download option
-    st.subheader("Download Database")
-    if os.path.exists("loan_predictions.db"):
-        with open("loan_predictions.db", "rb") as db_file:
-            st.download_button(
-                label="Download SQLite Database",
-                data=db_file,
-                file_name="loan_predictions.db",
-                mime="application/octet-stream"
-            )
-    else:
-        st.error("Database file not found. Please generate predictions to create the database.")
+    # Download database
+    with open("loan_predictions.db", "rb") as db_file:
+        st.download_button(
+            label="Download Database",
+            data=db_file,
+            file_name="loan_predictions.db",
+            mime="application/octet-stream"
+        )
 
 if __name__ == '__main__':
     main()
