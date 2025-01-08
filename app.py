@@ -99,11 +99,14 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     # Scale the input data
     input_data_scaled = scaler.transform(input_data_filtered)
 
-    # Predict the result
-    prediction = classifier.predict(input_data_scaled)
-    probabilities = classifier.predict_proba(input_data_scaled)[0]  # Get probabilities
+    # Convert the scaled data back to a DataFrame with the trained features
+    input_data_scaled_df = pd.DataFrame(input_data_scaled, columns=trained_features)
 
-    return prediction[0], probabilities, input_data_filtered, input_data_scaled
+    # Predict the result
+    prediction = classifier.predict(input_data_scaled_df)
+    probabilities = classifier.predict_proba(input_data_scaled_df)[0]  # Get probabilities
+
+    return prediction[0], probabilities, input_data_filtered, input_data_scaled_df
 
 # Main Streamlit app
 def main():
@@ -153,7 +156,7 @@ def main():
         st.write(input_data)
 
         st.subheader("Input Data (Scaled)")
-        st.write(pd.DataFrame(input_data_scaled, columns=trained_features))
+        st.write(input_data_scaled)
 
         # Plot feature contributions
         coefficients = classifier.coef_[0]
